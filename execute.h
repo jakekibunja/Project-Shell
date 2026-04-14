@@ -1,5 +1,8 @@
 #pragma once
-#include <vector>
+
 #include <string>
-using namespace std;
-string executeCommand(vector<string> input); 
+#include <vector>
+
+// Executes a parsed command line.
+// Returns the child exit status (0 for success) or a negative value on immediate failure.
+int executeCommand(const std::vector<std::string>& input);

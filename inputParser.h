@@ -1,5 +1,7 @@
 #pragma once
-#include <vector>
+
 #include <string>
-using namespace std;
-vector<string> parser(string s);
+#include <vector>
+
+// Splits a raw command line into tokens, respecting simple quotes.
+std::vector<std::string> parser(const std::string& s);

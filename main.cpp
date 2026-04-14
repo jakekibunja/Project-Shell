@@ -1,29 +1,45 @@
-#include <iostream>
-#include <vector>
-#include <string>
+#include <cstdlib>
 #include <filesystem>
+#include <iostream>
+#include <string>
+#include <vector>
 #include "inputParser.h"
 #include "execute.h"
 
 using namespace std;
 
 string getPathFromHome() {
-    string str = filesystem::current_path();
-    return str.substr(str.find_last_of("/") + 1);
+    auto cwd = filesystem::current_path();
+    const char* home = getenv("HOME");
+    if (home) {
+        string homeStr(home);
+        auto pos = cwd.string().find(homeStr);
+        if (pos == 0) {
+            string rel = cwd.string().substr(homeStr.size());
+            if (rel.empty()) return "~";
+            if (rel[0] != '/') rel = "/" + rel;
+            return "~" + rel;
+        }
+    }
+    return cwd.string();
 }
 
 int main() {
     while (true) {
         // Show prompt with current directory
-        cout << "[~/" << getPathFromHome() << "]$ ";
+        cout << "[" << getPathFromHome() << "]$ ";
 
         // Take input
         string input;
-        getline(cin, input);
+        if (!getline(cin, input)) {
+            cout << "\n";
+            break; // EOF (Ctrl-D)
+        }
 
         // Parse and execute command
         vector<string> parsedInput = parser(input);
-        cout << executeCommand(parsedInput) << endl;
+        if (parsedInput.empty()) continue;
+        executeCommand(parsedInput);
     }
 
     return 0;
