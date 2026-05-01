@@ -9,6 +9,7 @@
 using namespace std;
 
 string getPathFromHome() {
+    // Show paths inside HOME as ~/... so the prompt stays short and familiar.
     auto cwd = filesystem::current_path();
     const char* home = getenv("HOME");
     if (home) {
@@ -26,17 +27,17 @@ string getPathFromHome() {
 
 int main() {
     while (true) {
-        // Show prompt with current directory
+        // Prompt always reflects the current working directory.
         cout << "[" << getPathFromHome() << "]$ ";
 
-        // Take input
+        // Read one full command line from stdin.
         string input;
         if (!getline(cin, input)) {
             cout << "\n";
-            break; // EOF (Ctrl-D)
+            break; // Exit cleanly on EOF (Ctrl-D).
         }
 
-        // Parse and execute command
+        // Tokenize then dispatch to the shell command handler.
         vector<string> parsedInput = parser(input);
         if (parsedInput.empty()) continue;
         executeCommand(parsedInput);

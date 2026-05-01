@@ -4,11 +4,12 @@
 #include <sstream>
 
 std::vector<std::string> parser(const std::string& s) {
+    // Stringstream gives us simple shell-like token splitting on whitespace.
     std::stringstream ss(s);
     std::vector<std::string> inputParsed;
     std::string word;
 
-    // Use std::quoted to keep groups wrapped in "..." together.
+    // std::quoted keeps "two words" as one token and strips the quotes.
     while (ss >> std::quoted(word)) {
         inputParsed.push_back(word);
     }

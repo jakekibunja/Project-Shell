@@ -25,6 +25,7 @@ extern char** environ;
 
 namespace {
 
+// Centralized help text so "help" output and supported commands stay in sync.
 std::vector<std::string> helpLines() {
     return {
         "Supported commands:",
@@ -101,6 +102,7 @@ int cmdCd(const std::vector<std::string>& input) {
 
     char cwd[PATH_MAX];
     if (getcwd(cwd, sizeof(cwd))) {
+        // Keep PWD aligned with the real cwd for commands that rely on env vars.
         setenv("PWD", cwd, 1);
     }
     return 0;
@@ -130,9 +132,11 @@ int listDirectory(const std::string& rawPath) {
             return -1;
         }
         std::string name = entry.path().filename().string();
+        // Add a trailing slash so folders are easy to spot in plain output.
         if (entry.is_directory(ec) && !ec) name += "/";
         entries.push_back(std::move(name));
     }
+    // Sort for stable output regardless of filesystem iteration order.
     std::sort(entries.begin(), entries.end());
     for (const auto& name : entries) {
         std::cout << name << '\n';
@@ -179,6 +183,7 @@ int cmdPause() {
 
 std::optional<uid_t> parseUid(const std::string& token) {
     if (token.empty()) return std::nullopt;
+    // Accept either raw numeric IDs or account names.
     bool allDigits = std::all_of(token.begin(), token.end(), [](unsigned char c) { return std::isdigit(c) != 0; });
     if (allDigits) return static_cast<uid_t>(std::stoul(token));
     if (const passwd* pw = getpwnam(token.c_str())) return pw->pw_uid;
@@ -187,6 +192,7 @@ std::optional<uid_t> parseUid(const std::string& token) {
 
 std::optional<gid_t> parseGid(const std::string& token) {
     if (token.empty()) return std::nullopt;
+    // Accept either raw numeric IDs or group names.
     bool allDigits = std::all_of(token.begin(), token.end(), [](unsigned char c) { return std::isdigit(c) != 0; });
     if (allDigits) return static_cast<gid_t>(std::stoul(token));
     if (const group* gr = getgrnam(token.c_str())) return gr->gr_gid;
@@ -201,6 +207,7 @@ int cmdChmod(const std::vector<std::string>& input) {
 
     char* end = nullptr;
     errno = 0;
+    // Parse explicit octal mode (e.g. 755, 644).
     unsigned long mode = std::strtoul(input[1].c_str(), &end, 8);
     if (errno != 0 || end == input[1].c_str() || *end != '\0') {
         std::cerr << "chmod: invalid mode '" << input[1] << "'\n";
@@ -227,6 +234,7 @@ int cmdChown(const std::vector<std::string>& input) {
     std::string owner = spec;
     std::string groupName;
     const std::size_t colon = spec.find(':');
+    // Supports owner-only, group-only (:group), or owner:group forms.
     if (colon != std::string::npos) {
         owner = spec.substr(0, colon);
         groupName = spec.substr(colon + 1);
@@ -274,6 +282,7 @@ int cmdChown(const std::vector<std::string>& input) {
 
 int cmdCat(const std::vector<std::string>& input) {
     if (input.size() < 2) {
+        // No file provided: behave like a filter and echo stdin.
         std::string line;
         while (std::getline(std::cin, line)) std::cout << line << '\n';
         return 0;
@@ -362,6 +371,7 @@ std::filesystem::path copyTargetForSource(
     const std::filesystem::path& src,
     const std::filesystem::path& dest,
     bool destinationIsDirectory) {
+    // For multi-source copies, mimic cp semantics: place each src under dest dir.
     if (destinationIsDirectory) return dest / src.filename();
     return dest;
 }
@@ -420,7 +430,7 @@ int movePath(const std::filesystem::path& src, const std::filesystem::path& dst)
     std::filesystem::rename(src, dst, ec);
     if (!ec) return 0;
 
-    // Cross-device moves can fail rename; fallback to copy + delete.
+    // rename() can fail across filesystems; fallback to copy + delete.
     if (copyPath(src, dst) != 0) return -1;
 
     if (std::filesystem::is_directory(src, ec)) {
@@ -482,6 +492,7 @@ int cmdTouch(const std::vector<std::string>& input) {
         }
         close(fd);
 
+        // Update both access and modification timestamps to "now".
         timespec now;
         clock_gettime(CLOCK_REALTIME, &now);
         timespec times[2] = {now, now};
@@ -501,6 +512,7 @@ int grepStream(const std::regex& pattern, std::istream& in, const std::string& p
     std::string line;
     while (std::getline(in, line)) {
         if (grepLineMatches(pattern, line)) {
+            // Prefix with filename when scanning multiple files.
             if (!prefix.empty()) std::cout << prefix << ':';
             std::cout << line << '\n';
         }
@@ -551,7 +563,7 @@ WcCounts wcStream(std::istream& in) {
     std::string line;
     while (std::getline(in, line)) {
         ++counts.lines;
-        counts.chars += line.size() + 1; // Include newline.
+        counts.chars += line.size() + 1; // Count newline so output matches common wc behavior.
         std::istringstream iss(line);
         std::string word;
         while (iss >> word) ++counts.words;
@@ -597,6 +609,7 @@ int executeCommand(const std::vector<std::string>& input) {
 
     const std::string& cmd = input[0];
 
+    // Simple dispatch table via if-chain for built-in commands.
     if (cmd == "cd") return cmdCd(input);
     if (cmd == "pwd") return cmdPwd();
     if (cmd == "clr" || cmd == "cls") return cmdClear();
